@@ -1,0 +1,89 @@
+#!/usr/bin/Rscript
+library(DESeq2)
+library(limma)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggsci)
+library(ggpubr)
+library(ggrepel)
+library(ggvenn)
+
+##Bibert et al., Front Immunol 2021
+##Inputs
+geneAnnot <- read.table("gencode.v34.annotation.txt",row.names = 1)
+gtexExp <- read.table("rawcnt.txt",header = TRUE,row.names = 1,check.names = FALSE)
+gtexExp$geneID <- geneAnnot[rownames(gtexExp),1]
+gtexExp <- aggregate(gtexExp[-c(153)],by=list(gtexExp$geneID),FUN=sum,na.rm=TRUE)
+rownames(gtexExp) <- gtexExp$Group.1
+gtexExp <- gtexExp[,-1]
+
+sampleAnnot <- read.table("samples.txt",header = TRUE,sep = "\t",row.names = 1)
+sampleAnnot[which(sampleAnnot$group=="TUBE.early" | sampleAnnot$group=="TUBE.late"),"group"] <- "TUBE"
+
+##differential expression analysis
+colGroup <- data.frame(row.names = rownames(sampleAnnot),group=factor(sampleAnnot$group),
+                       sex=factor(sampleAnnot$gender),age=factor(sampleAnnot$age))
+
+colGroup1 <- colGroup[which(colGroup$group=="TUBE" | colGroup$group=="OXY1"),]
+
+gtexExp1 <- gtexExp[,rownames(colGroup1)]
+dds <- DESeqDataSetFromMatrix(countData = gtexExp1, colData = colGroup1, 
+                              design= ~sex + age + group,tidy=FALSE)
+dds <- dds[rowSums(counts(dds) >= 5) >= ncol(gtexExp1)/2, ]
+dds <- DESeq(dds,test = "LRT",reduced= ~sex+age)
+res <- results(dds,contrast=c("group","TUBE","OXY1"),independentFiltering=TRUE,alpha=0.05,pAdjustMethod="BH")
+res <- res[order(res$padj),]
+
+##Plot volcano
+ageGene <- read.table("degreport-p0.05-cov-genes-table.upC.downC.txt",row.names = 1,header = TRUE)
+
+upGene <- rownames(ageGene)[which(ageGene$cluster==1)]
+downGene <- rownames(ageGene)[which(ageGene$cluster==2)]
+
+normdata <- as.data.frame(res[-which(rownames(res) %in% c(upGene,downGene)),])
+updata <- as.data.frame(res[which(rownames(res) %in% upGene),])
+downdata <- as.data.frame(res[which(rownames(res) %in% downGene),])
+
+colScale <- scale_colour_manual(values=c("#00AFBB","#FC4E07","gray77"))
+ggplot()+
+  geom_point(pch=20,alpha=0.8,cex=0.3,data=normdata,aes(x=log2FoldChange,y=(-log10(padj)),color="gray77"))+
+  geom_point(pch=20,alpha=0.6,cex=0.3,data=downdata,aes(x=log2FoldChange,y=(-log10(padj)),color="#00AFBB"))+
+  geom_point(pch=20,alpha=0.6,cex=0.3,data=updata,aes(x=log2FoldChange,y=(-log10(padj)),color="#FC4E07"))+
+  colScale+theme_classic() +theme_pubr()+ theme(legend.position="none")+
+  scale_x_continuous(breaks = seq(-2,4,2),limits = c(-2,4))+
+  scale_y_continuous(breaks = seq(0,3,1),limits = c(0,3))
+
+##Venn diagrams
+Set1 <- rownames(res)[which(abs(res$log2FoldChange)>log2(1.5) & res$padj<0.05)]
+Set2 <- intersect(rownames(ageGene),rownames(res))
+a <- list(covidDiff=Set1,ageDiff=Set2)
+ggvenn(a, c("ageDiff","covidDiff"))
+
+##Bar plot
+covidUp <- rownames(res)[which(res$log2FoldChange>log2(1.5) & res$padj<0.05)]
+covidDown <- rownames(res)[which(res$log2FoldChange<(-log2(1.5)) & res$padj<0.05)]
+
+a <- c(length(intersect(covidUp,downGene)),length(intersect(covidUp,upGene)),
+       length(intersect(covidDown,downGene)),length(intersect(covidDown,upGene)))
+
+plotData <- data.frame(x=c("induced","induced"," repressed"," repressed"),
+                       y=a,color=c("#00AFBB","#FC4E07","#00AFBB","#FC4E07"))
+plotData$x <- fct_inorder(plotData$x)
+
+ggplot(plotData,aes(x=x,y=y,fill=color))+
+  geom_bar(stat = 'identity',position=position_dodge(0.7),width = 0.5)+
+  scale_fill_manual(values = c("#00AFBB","#FC4E07"))+
+  theme_classic() +theme_pubr()+ theme(legend.position="none")+
+  scale_y_continuous(breaks=seq(0,8,2),limits = c(0,8))+
+  xlab("")+ylab("# of genes")
+
+##Arunachalam et al., Science 2020,
+GSE152418 <- read.table("GSE152418_diffResult.txt",row.names = 1,header = TRUE)
+GSE152418_up <- rownames(GSE152418)[which(GSE152418$log2FoldChange>log2(1) & GSE152418$padj<0.05)]
+GSE152418_down <- rownames(GSE152418)[which(GSE152418$log2FoldChange<(-log2(1)) & GSE152418$padj<0.05)]
+
+##Ahern et al., Cell 2022
+webSite <- read.table("COVID-19_(severe_and_critical)vsHealthy_DEResults_AgeSexB.txt",row.names = 1,header = TRUE)
+webSite_up <- unique(webSite$Gene[which(webSite$logFC>log2(1) & webSite$adj.P.Val<0.05)])
+webSite_down <- unique(webSite$Gene[which(webSite$logFC<(-log2(1)) & webSite$adj.P.Val<0.05)])
