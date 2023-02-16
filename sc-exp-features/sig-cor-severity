@@ -8,7 +8,7 @@ library(ggrepel)
 library(Seurat)
 library(Matrix)
 
-##calculate percenatge of the cell-type expression a given gene
+##calculate the proportion of a given cell-type expressing a age-related gene
 control_expMatrix <- read.csv("control_countExpMatrix.csv",row.names = 1,check.names = FALSE)
 control_rawMatrix <- read.csv("control_countRawMatrix.csv",row.names = 1,check.names = FALSE)
 moderate_expMatrix <- read.csv("moderate_countExpMatrix.csv",row.names = 1,check.names = FALSE)
