@@ -1,16 +1,6 @@
 #!/usr/bin/Rscript
 library(Seurat)
 library(Matrix)
-library(DESeq2)
-library(stringr)
-library(limma)
-library(ggplot2)
-library(tidyr)
-library(RColorBrewer)
-library(ggsci)
-library(ggpubr)
-library(ggrepel)
-library(GSVA)
 
 ##psuedo-bulk
 geneID <- read.table("GSE158055_covid19_features.tsv")
