@@ -1,4 +1,3 @@
-#!/usr/bin/c++
 #include <iostream>
 #include <fstream>
 #include <vector>
