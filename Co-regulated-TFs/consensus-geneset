@@ -121,6 +121,3 @@ ggplot(plotData,aes(x=x,y=y,fill=color))+
   theme_classic() +theme_pubr()+ theme(legend.position="none")+
   scale_y_continuous(breaks=seq(0,50,10),limits = c(0,50))+
   xlab("")+ylab("# of genes")
-
-write.csv(c(induced_ageUp,induced_ageDown,repre_ageUp,repre_ageDown),file = "candidate.csv")
-
