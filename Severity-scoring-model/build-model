@@ -1,0 +1,98 @@
+#!/usr/bin/Rscript
+library(DESeq2)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggsci)
+library(ggpubr)
+library(ggrepel)
+library(forcats)
+
+##Inputs
+geneAnnot <- read.table("gencode.v34.annotation.txt",row.names = 1)
+gtexExp <- read.table("rawcnt.txt",header = TRUE,row.names = 1,check.names = FALSE)
+gtexExp$geneID <- geneAnnot[rownames(gtexExp),1]
+gtexExp <- aggregate(gtexExp[-c(153)],by=list(gtexExp$geneID),FUN=sum,na.rm=TRUE)
+rownames(gtexExp) <- gtexExp$Group.1
+gtexExp <- gtexExp[,-1]
+
+gtexExp <- gtexExp[rowSums(gtexExp>=10)>=ncol(gtexExp)/2,]
+sampleAnnot <- read.table("samples.txt",header = TRUE,sep = "\t",row.names = 1)
+sampleAnnot[which(sampleAnnot$group=="TUBE.early" | sampleAnnot$group=="TUBE.late"),"group"] <- "TUBE"
+sampleAnnot[which(sampleAnnot$group=="OXY0" | sampleAnnot$group=="OXY1"),"group"] <- "OXY"
+
+gtexExp <- gtexExp[,rownames(sampleAnnot)[which(sampleAnnot$group=="HLTY" | sampleAnnot$group=="OXY" | sampleAnnot$group=="TUBE")]]
+
+##calculate RPKM
+geneLen <- read.table("gencode_v34.txt")
+expFPKM <- matrix(0,nrow = nrow(gtexExp),ncol = ncol(gtexExp))
+rownames(expFPKM) <- rownames(gtexExp)
+colnames(expFPKM) <- colnames(gtexExp)
+
+i <- 1
+for (i in 1:nrow(expFPKM)) {
+  maxLen <- max(geneLen$V4[which(geneLen$V3 %in% rownames(expFPKM)[i])])
+  expFPKM[i,] <- as.numeric(gtexExp[i,])*10^9/as.numeric((maxLen*colSums(gtexExp)))
+}
+
+##
+candidateGene <- read.csv("candidate.csv",header = FALSE)
+expFPKM_1 <- as.data.frame(t(expFPKM[intersect(rownames(expFPKM),candidateGene$V1),]))
+expFPKM_1$class <- as.factor(sampleAnnot[rownames(expFPKM_1),1])
+
+##Boruta
+library(Boruta)
+Boruta(class~.,data=expFPKM_1,maxRuns=1000)->Boruta.covid
+
+##MUVR
+library(MUVR)
+library(doParallel)
+nCore <- detectCores()-1
+nRep <- 1000
+nOuter <- 6
+varRatio <- 0.75
+method <- "RF"
+
+cl <- makeCluster(nCore)
+registerDoParallel(cl)
+class <- as.factor(sampleAnnot[rownames(expFPKM_1),1])
+classModel <- MUVR(X=expFPKM_1,Y=class,nRep = nRep,nOuter = nOuter,varRatio = varRatio,method = method)
+
+plotVAL(classModel)
+MUVR_result <- getVIP(classModel,model = "min")
+
+##Venn diagrams
+Set1 <- rownames(MUVR_result)
+Set2 <- names(Boruta.covid$finalDecision)[which(Boruta.covid$finalDecision=="Confirmed")]
+library(ggvenn)
+a <- list(MUVR=Set1,Boruta=Set2)
+ggvenn(a, c("MUVR","Boruta"))
+
+finalGene <- intersect(Set1,Set2)
+write.csv(finalGene,file = "final.csv")
+
+bk <- seq(-1,1,by=0.01)
+pheatmap::pheatmap(cor(expFPKM_1[,intersect(Set1,Set2)]),
+                   color = colorRampPalette(c("#377EB8","white","#E41A1C"))(202),
+                   legend_breaks=seq(-1,1,0.5),breaks = bk,treeheight_row = 0,treeheight_col = 0,
+                   border_color = "white")
+                   
+##ROC analysis
+finalGene <- as.data.frame(res[finalGene$x,])
+upGene <- rownames(finalGene)[which(finalGene$log2FoldChange>0)]
+downGene <- rownames(finalGene)[which(finalGene$log2FoldChange<0)]
+
+cValue <- c()
+rValue <- c()
+i <- 1
+for (i in 1:nrow(colGroup1)) {
+  upexp <- mean(as.numeric(expFPKM[upGene,rownames(colGroup1)[i]]))
+  downexp <- mean(as.numeric(expFPKM[downGene,rownames(colGroup1)[i]]))
+  rValue <- c(rValue,upexp/downexp)
+}
+
+cValue <- as.character(colGroup1$group)
+ROCdata <- data.frame(outcome=cValue,value=rValue)
+
+library(pROC)
+ROCcurve <- roc(ROCdata$outcome,ROCdata$value,levels = c("OXY","HLTY"),ci=TRUE,SP=TRUE,SE=TRUE)
