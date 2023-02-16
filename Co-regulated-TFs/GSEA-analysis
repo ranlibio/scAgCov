@@ -1,0 +1,71 @@
+#!/usr/bin/Rscript
+library(DESeq2)
+library(stringr)
+library(limma)
+library(DEGreport)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggsci)
+
+gtexExp <- read.table("gene_reads_whole_blood.gct",header = TRUE,row.names = 1,check.names = FALSE)
+gtexExp <- aggregate(gtexExp[-c(1,2)],by=list(gtexExp$Description),FUN=sum,na.rm=TRUE)
+rownames(gtexExp) <- gtexExp$Group.1
+gtexExp <- gtexExp[,-1]
+
+i <- 1
+for (i in 1:ncol(gtexExp)) {
+  tmp <- unlist(strsplit(colnames(gtexExp)[i],"-"))
+  colnames(gtexExp)[i] <- paste(tmp[1],tmp[2],sep = "-")
+}
+
+sampleAnnot <- read.table("GTEx_Portal.txt",header = TRUE,sep = "\t",row.names = 1)
+sampleAnnot <- unique(sampleAnnot[,c(2:6)])
+rownames(sampleAnnot) <- sampleAnnot$Subject.ID
+sampleAnnot <- sampleAnnot[colnames(gtexExp),]
+
+sampleAnnot$Hardy[which(sampleAnnot$Hardy!="Ventilator case")] <- "no"
+sampleAnnot$Hardy[which(sampleAnnot$Hardy=="Ventilator case")] <- "yes"
+sampleAnnot$AgeBin <- str_replace(sampleAnnot$AgeBin,"-","_")
+
+sampleAnnot$AgeBin[which(sampleAnnot$AgeBin=="60_69" | sampleAnnot$AgeBin=="70_79")] <- "high"
+sampleAnnot$AgeBin[which(sampleAnnot$AgeBin=="20_29" | sampleAnnot$AgeBin=="30_39")] <- "low"
+geneAnnot <- read.table("geneInfo.tab",row.names = 1)
+geneAnnot <- geneAnnot[which(geneAnnot$V3=="protein_coding"),]
+gtexExp <- gtexExp[which(rownames(gtexExp) %in% geneAnnot$V2),rownames(sampleAnnot)]
+
+######Diff analysis
+colGroup <- data.frame(row.names = rownames(sampleAnnot),sex=factor(sampleAnnot$Sex),
+                       age=factor(sampleAnnot$AgeBin),hardy=factor(sampleAnnot$Hardy))
+
+dds <- DESeqDataSetFromMatrix(countData = gtexExp, colData = colGroup, 
+                              design= ~sex + hardy + age,tidy=FALSE)
+dds <- dds[rowSums(counts(dds) >= 5) >= ncol(gtexExp)/2, ]
+dds <- DESeq(dds,test = "LRT",reduced= ~sex+hardy)
+
+res <- results(dds,contrast=c("age","high","low"),
+               independentFiltering=TRUE,alpha=0.05,pAdjustMethod="BH")
+
+######
+##GSEA
+TargetGene <- read.table("D:/liran_paper/covid19/data/transcriptome/20220812/target_gene.txt",
+                         header = TRUE)
+
+OrderGeneList <- res$log2FoldChange
+names(OrderGeneList) <- rownames(res)
+OrderGeneList <- sort(OrderGeneList,decreasing = TRUE)
+
+TERM2gene <- cbind(rep(colnames(TargetGene)[6],nrow(TargetGene)),
+                   as.data.frame(TargetGene[,6]))
+colnames(TERM2gene) <- c("ont","gene")
+
+GSEA_res <- GSEA(OrderGeneList,TERM2GENE = TERM2gene,pvalueCutoff = 0.05,maxGSSize = 2000,eps = 0)
+GSEA_res@result$NES
+enrichplot::gseaplot2(GSEA_res,geneSetID = colnames(TargetGene)[6],
+                      pvalue_table = TRUE,ES_geom = "line")
+
+
+
+
+
+
