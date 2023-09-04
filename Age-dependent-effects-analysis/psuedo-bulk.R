@@ -22,3 +22,4 @@ for (i in 1:length(files)) {
 }
 
 write.table(rawCount,file = "psuedo-bulk.txt",row.names = TRUE,quote = FALSE,col.names = TRUE,sep = "\t")
+
