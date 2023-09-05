@@ -73,3 +73,4 @@ ROCcurve <- roc(response=ROCdata$outcome,predictor=ROCdata$value,levels = c("sp"
                 ci=TRUE,SP=TRUE,SE=TRUE,plot = TRUE,percent=TRUE,auc = TRUE)
 
 plot.roc(ROCcurve, print.auc = TRUE, print.thres = "best")
+
