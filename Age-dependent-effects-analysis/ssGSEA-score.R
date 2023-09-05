@@ -56,3 +56,4 @@ ggplot(data=plotData,aes(x=x,y=y,color=x))+
   scale_y_continuous(breaks = seq(-3,3,3),limits = c(-3,3))+
   scale_color_nejm()+theme_pubr()+theme(legend.position="none")+stat_compare_means(method = "kruskal.test")+
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),plot.title = element_text(hjust = 0.5))
+
