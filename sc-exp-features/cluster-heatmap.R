@@ -103,3 +103,4 @@ pheatmap(t(con_moderate_down[cluster_cols,cluster_rows]),scale = "none",show_row
          treeheight_row = 0,treeheight_col = 0,border_color = NA,na_col = "white",
          color = colorRampPalette(brewer.pal(n = 8, name ="RdPu"))(101),
          legend_breaks=seq(0,100,20),breaks=bk)
+
