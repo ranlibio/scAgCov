@@ -184,3 +184,4 @@ pheatmap(t(selected_genes[rownames(sigMatrix.padjust),colnames(sigMatrix.padjust
          cluster_rows=FALSE, display_numbers=t(sigMatrix.padjust),
          border_color = "white",
          color = c("#0571B0","white","#CA0020"))
+
