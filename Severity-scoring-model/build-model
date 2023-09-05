@@ -94,5 +94,6 @@ for (i in 1:nrow(colGroup1)) {
 cValue <- as.character(colGroup1$group)
 ROCdata <- data.frame(outcome=cValue,value=rValue)
 
+
 library(pROC)
 ROCcurve <- roc(ROCdata$outcome,ROCdata$value,levels = c("OXY","HLTY"),ci=TRUE,SP=TRUE,SE=TRUE)
