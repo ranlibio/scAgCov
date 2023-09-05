@@ -68,3 +68,4 @@ ggplot(mydf,aes(x=OLR_estimate,y=Cell))+geom_vline(xintercept=0,linetype=2,color
   theme_bw()+scale_color_manual(values=c("#FC4E07","#00AFBB","black")) + 
   scale_size_continuous(name = "-log pvalue",range=c(1,4))
 dev.off()
+
