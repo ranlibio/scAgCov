@@ -58,3 +58,4 @@ colnames(TERM2gene) <- c("ont","gene")
 GSEA_res <- GSEA(OrderGeneList,TERM2GENE = TERM2gene,pvalueCutoff = 0.05,maxGSSize = 2000,eps = 0)
 GSEA_res@result$NES
 enrichplot::gseaplot2(GSEA_res,geneSetID = colnames(TargetGene)[1],pvalue_table = TRUE,ES_geom = "line")
+
