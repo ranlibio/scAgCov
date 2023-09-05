@@ -90,3 +90,4 @@ mydf3[mydf3$cluster %in% upc,2] = "1"
 mydf3[mydf3$cluster %in% downc,2] = "2"
 
 write.table(mydf3,"degreport-p0.05-cov-genes-table.upC.downC.txt",sep="\t",row.names=FALSE,quote = FALSE)
+
