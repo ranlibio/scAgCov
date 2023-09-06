@@ -122,3 +122,4 @@ ggplot(plotData,aes(x=x,y=y,fill=color))+
   scale_y_continuous(breaks=seq(0,50,10),limits = c(0,50))+
   xlab("")+ylab("# of genes")
 
+
