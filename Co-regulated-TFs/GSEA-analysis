@@ -59,3 +59,4 @@ GSEA_res <- GSEA(OrderGeneList,TERM2GENE = TERM2gene,pvalueCutoff = 0.05,maxGSSi
 GSEA_res@result$NES
 enrichplot::gseaplot2(GSEA_res,geneSetID = colnames(TargetGene)[1],pvalue_table = TRUE,ES_geom = "line")
 
+
